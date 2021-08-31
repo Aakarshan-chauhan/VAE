@@ -6,7 +6,13 @@ import torchvision.datasets as datasets
 from torchvision import datasets
 import matplotlib.pyplot as plt
 
-
+'''
+try:
+    device = t.device('cuda')
+except:
+    device= t.device('cpu')
+'''
+device = t.device('cpu')
 class Encoder(nn.Module):
     def __init__(self, latent_space):
         super(Encoder, self).__init__()
@@ -81,14 +87,14 @@ class VAE(nn.Module):
         return self.decoder(z)
     
     def save_model(self):
-        t.save(self.encoder, "Encoder_weights")
-        t.save(self.decoder, "Decoder_weights")
+        t.save(self.encoder, "Encoder_weights.pth")
+        t.save(self.decoder, "Decoder_weights.pth")
     
     def load_model(self):
-        self.encoder = t.load("Encoder_weights")
+        self.encoder = t.load("Encoder_weights.pth")
         self.encoder.eval()
         
-        self.decoder = t.load("Decoder_weights")
+        self.decoder = t.load("Decoder_weights.pth")
         self.decoder.eval()
 
 def train(model, data, epochs=20):
@@ -111,39 +117,44 @@ def train(model, data, epochs=20):
 def show(img):
     img = img.permute(1,2,0)
     plt.imshow(img)
+    plt.show()
 
 def predict(model, img):
     preds = model(img.to(device))[0].cpu().detach()
     show(img)
 
-if __name__ == "__main__":
-    datasets.MNIST.resources = [
-            ('https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz', 'f68b3c2dcbeaaa9fbdd348bbdeb94873'),
-            ('https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz', 'd53e105ee54ea40749a09fcbcd1e9432'),
-            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz', '9fb629c4189551a2d022fa330f9573f3'),
-            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz', 'ec29112dd5afa0611ce80d1b7f02629c')
-        ]
-
+def load_data(num_data=60000):
     mnist_trainset = datasets.MNIST(root="./data", train=True, download=True, transform=None)
-    try:
-        device = t.device('cuda')
-    except:
-        device= t.device('cpu')
-
+    
     i = 0
-    ximgs = np.empty((60000, 28, 28, 1), dtype=np.float32)
-    y = np.empty((60000, 1), dtype=np.float32)
+    ximgs = np.empty((num_data, 28, 28, 1), dtype=np.float32)
+    y = np.empty((num_data, 1), dtype=np.float32)
 
     for img, label in mnist_trainset:
         img = np.array(img, dtype=np.float32)[:, :, np.newaxis]
         ximgs[i] = img
         y[i] = [label]
         i+= 1
+        if i >= num_data:
+            break
     ximgs = t.from_numpy(ximgs)
     ximgs = ximgs.permute(0, 3, 1, 2)
 
+    return ximgs, y
+if __name__ == "__main__":
+    '''
+    datasets.MNIST.resources = [
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz', 'f68b3c2dcbeaaa9fbdd348bbdeb94873'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz', 'd53e105ee54ea40749a09fcbcd1e9432'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz', '9fb629c4189551a2d022fa330f9573f3'),
+            ('https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz', 'ec29112dd5afa0611ce80d1b7f02629c')
+        ]
+    '''
+    
+    ximgs, y = load_data()
+
     v = VAE(10).to(device)
     train(v, ximgs[:60000], 10)
-
+    v.save_model()
 
     
